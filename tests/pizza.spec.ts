@@ -98,3 +98,32 @@ test('buy pizza with login', async ({ page }) => {
   // Check balance
   await expect(page.getByText('0.008')).toBeVisible();
 });
+
+test('create and close store as franchisee', async ({ page }) => {
+  await page.goto('/');
+
+  // Login as franchisee
+  await page.getByRole('link', { name: 'Login', exact: true }).click();
+  await page.getByPlaceholder('Email address').fill('f@jwt.com');
+  await page.getByPlaceholder('Email address').press('Tab');
+  await page.getByPlaceholder('Password').fill('franchisee');
+  await page.getByRole('button', { name: 'Login' }).click();
+  await expect(page.getByLabel('Global')).toContainText('pf');
+
+  // Go to franchise
+  await page.getByLabel('Global').getByRole('link', { name: 'Franchise' }).click();
+  await expect(page.getByRole('main')).toContainText('Everything you need to run an JWT Pizza franchise. Your gateway to success.');
+  
+  // create new store
+  await page.getByRole('button', { name: 'Create store' }).click();
+  await page.getByPlaceholder('store name').click();
+  await page.getByPlaceholder('store name').fill('Golden Creek');
+  await page.getByRole('button', { name: 'Create' }).click();
+  await expect(page.locator('tbody')).toContainText('Golden Creek');
+
+  // delete new store
+  await page.getByRole('button', { name: 'Close' }).nth(1).click();
+  await expect(page.getByRole('main')).toContainText('Golden Creek');
+  await page.getByRole('button', { name: 'Close' }).click();
+  await expect(page.locator('tbody')).not.toContainText('Golden Creek');
+});
