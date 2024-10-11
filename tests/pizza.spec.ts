@@ -286,3 +286,53 @@ test('create and delete franchise as admin', async ({ page }) => {
   await page.getByRole('button', { name: 'Close' }).click();
   await expect(page.getByRole('table')).not.toContainText('Little Ceasars');
 });
+
+test('view information pages', async ({ page }) => {
+  await page.goto('/');
+
+  // Check generic Franchisee page
+  await page.getByRole('list').click();
+  await page.getByRole('contentinfo').getByRole('link', { name: 'Franchise' }).click();
+  await expect(page.getByRole('alert')).toContainText('If you are already a franchisee, pleaseloginusing your franchise account');
+  await expect(page.locator('tbody')).toContainText('500 ₿');
+  
+  // Check About page
+  await page.getByRole('link', { name: 'About' }).click();
+  await expect(page.getByText('JamesMariaAnnaBrian')).toBeVisible();
+  await expect(page.getByRole('main')).toContainText('The secret sauce');
+  
+  // Check History page
+  await page.getByRole('link', { name: 'History' }).click();
+  await expect(page.getByRole('heading')).toContainText('Mama Rucci, my my');
+});
+
+test('register and logout user', async ({ page }) => {
+  await page.route('*/**/api/auth', async (route) => {
+    const registerReq = { name: 'Test User', email: 'test@jwt.com', password: 'a' };
+    const registerRes = { user: { id: 17, name: 'Test User', email: 'test@jwt.com', roles: [{ role: 'diner' }] }, token: 'abcdef' };
+    const logoutRes = { message: 'logout successful' };
+
+    if (route.request().method() == 'POST') {
+      expect(route.request().postDataJSON()).toMatchObject(registerReq);
+      await route.fulfill({ json: registerRes });  
+    } else {
+      await route.fulfill({ json: logoutRes });
+    }
+  });
+
+  await page.goto('/');
+
+  // Register a user
+  await page.getByRole('link', { name: 'Register' }).click();
+  await page.getByPlaceholder('Full name').fill('Test User');
+  await page.getByPlaceholder('Full name').press('Tab');
+  await page.getByPlaceholder('Email address').fill('test@jwt.com');
+  await page.getByPlaceholder('Email address').press('Tab');
+  await page.getByPlaceholder('Password').fill('a');
+  await page.getByRole('button', { name: 'Register' }).click();
+  await expect(page.getByLabel('Global')).toContainText('TU');
+
+  // Logout a user
+  await page.getByRole('link', { name: 'Logout' }).click();
+  await expect(page.locator('#navbar-dark')).toContainText('Login');
+});
