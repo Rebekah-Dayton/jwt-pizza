@@ -97,6 +97,11 @@ test('buy pizza with login', async ({ page }) => {
 
   // Check balance
   await expect(page.getByText('0.008')).toBeVisible();
+
+  // Verify order
+  await page.getByRole('button', { name: 'Verify' }).click();
+  await expect(page.locator('h3')).toContainText('JWT Pizza - invalid');
+  await page.getByRole('button', { name: 'Close' }).click();
 });
 
 test('create and close store as franchisee', async ({ page }) => {
@@ -304,6 +309,10 @@ test('view information pages', async ({ page }) => {
   // Check History page
   await page.getByRole('link', { name: 'History' }).click();
   await expect(page.getByRole('heading')).toContainText('Mama Rucci, my my');
+
+  // Check order page
+  await page.getByRole('link', { name: 'Order' }).click();
+  await expect(page.locator('h2')).toContainText('Awesome is a click away');
 });
 
 test('register and logout user', async ({ page }) => {
@@ -332,7 +341,53 @@ test('register and logout user', async ({ page }) => {
   await page.getByRole('button', { name: 'Register' }).click();
   await expect(page.getByLabel('Global')).toContainText('TU');
 
+  // Check user home page
+  await page.getByRole('link', { name: 'TU' }).click();
+  await expect(page.getByText('diner', { exact: true })).toBeVisible();
+  await expect(page.getByRole('main')).toContainText('Test User');
+
+  // Check user order link
+  await page.getByRole('link', { name: 'Buy one' }).click();
+  await expect(page.locator('h2')).toContainText('Awesome is a click away');
+
   // Logout a user
   await page.getByRole('link', { name: 'Logout' }).click();
   await expect(page.locator('#navbar-dark')).toContainText('Login');
+});
+
+test('user order history', async ({ page }) => {
+  await page.route('*/**/api/auth', async (route) => {
+    const loginReq = { email: 'a@jwt.com', password: 'admin' };
+    const loginRes = { user: { id: 2, name: '常用名字', email: 'a@jwt.com', roles: [{ role: 'admin' }] }, token: 'abcdef' };
+    expect(route.request().method()).toBe('PUT');
+    expect(route.request().postDataJSON()).toMatchObject(loginReq);
+    await route.fulfill({ json: loginRes });
+  });
+
+  await page.route('*/**/api/order', async (route) => {
+    const orderRes = { dinerId: 2, orders: [
+      { id: 9,
+        franchiseId: 13, 
+        storId: 4, 
+        date: '2024-10-11T00:41:43.000Z',
+        items: [{ id: 17, menuId: 1, description: "Veggie", price: 0.0038 }]
+      }
+    ], page: 1 }
+    expect(route.request().method()).toBe('GET');
+    await route.fulfill({ json: orderRes });
+  });
+
+  await page.goto('/');
+
+  // Login admin
+  await page.getByRole('link', { name: 'Login' }).click();
+  await page.getByPlaceholder('Email address').fill('a@jwt.com');
+  await page.getByPlaceholder('Email address').press('Tab');
+  await page.getByPlaceholder('Password').fill('admin');
+  await page.getByRole('button', { name: 'Login' }).click();
+
+  // Check order history on dashboard
+  await page.getByRole('link', { name: '常' }).click();
+  await expect(page.getByRole('main')).toContainText('Here is your history of all the good times.');
+  await expect(page.locator('tbody')).toContainText('9');
 });
