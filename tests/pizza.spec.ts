@@ -100,6 +100,64 @@ test('buy pizza with login', async ({ page }) => {
 });
 
 test('create and close store as franchisee', async ({ page }) => {
+  let callsToFranchisee13 = 0;
+
+  await page.route('*/**/api/auth', async (route) => {
+    const loginReq = { email: 'f@jwt.com', password: 'franchisee' };
+    const loginRes = { user: { id: 13, name: 'pizza franchisee', email: 'f@jwt.com', roles: [{ objectId: 13, role: 'franchisee' }, { role: 'diner' }] }, token: 'abcdef' };
+    expect(route.request().method()).toBe('PUT');
+    expect(route.request().postDataJSON()).toMatchObject(loginReq);
+    await route.fulfill({ json: loginRes });
+  });
+  
+  await page.route('*/**/api/franchise/13/store', async (route) => {
+    const franchiseRes = { id: 20, franchiseId: 13, name: 'Golden Creek' };
+    expect(route.request().method()).toBe('POST');
+    await route.fulfill({ json: franchiseRes });
+  });
+
+  await page.route('*/**/api/franchise/13/store/20', async (route) => {
+    const franchiseRes = { message: "store deleted" };
+    expect(route.request().method()).toBe('DELETE');
+    await route.fulfill({ json: franchiseRes });
+  });
+
+  await page.route('*/**/api/franchise/13', async (route) => {
+    const franchiseRes_1 = [
+      {
+        id: 13,
+        name: 'pizzaPocket',
+        admins: [
+          { id: 13, name: 'pizza franchisee', email: 'f@jwt.com' },
+        ],
+        stores: [
+          { id: 4, name: 'Orem', totalRevenue: 0 },
+        ]
+      }
+    ];
+
+    const franchiseRes_2 = [
+      {
+        id: 13,
+        name: 'pizzaPocket',
+        admins: [
+          { id: 13, name: 'pizza franchisee', email: 'f@jwt.com' },
+        ],
+        stores: [
+          { id: 4, name: 'Orem', totalRevenue: 0 },
+          { id: 20, name: 'Golden Creek', totalRevenue: 0 }
+        ]
+      }
+    ];
+
+    expect(route.request().method()).toBe('GET');
+    if (callsToFranchisee13 == 1) {
+      await route.fulfill({ json: franchiseRes_2 });
+    } else {
+      await route.fulfill({ json: franchiseRes_1 });
+    }
+  });
+
   await page.goto('/');
 
   // Login as franchisee
@@ -113,17 +171,51 @@ test('create and close store as franchisee', async ({ page }) => {
   // Go to franchise
   await page.getByLabel('Global').getByRole('link', { name: 'Franchise' }).click();
   await expect(page.getByRole('main')).toContainText('Everything you need to run an JWT Pizza franchise. Your gateway to success.');
-  
+  callsToFranchisee13 += 1;
+
   // create new store
   await page.getByRole('button', { name: 'Create store' }).click();
   await page.getByPlaceholder('store name').click();
   await page.getByPlaceholder('store name').fill('Golden Creek');
   await page.getByRole('button', { name: 'Create' }).click();
   await expect(page.locator('tbody')).toContainText('Golden Creek');
-
+  callsToFranchisee13 += 1;
+  
   // delete new store
   await page.getByRole('button', { name: 'Close' }).nth(1).click();
   await expect(page.getByRole('main')).toContainText('Golden Creek');
   await page.getByRole('button', { name: 'Close' }).click();
   await expect(page.locator('tbody')).not.toContainText('Golden Creek');
+});
+
+test('create and delete franchise as admin', async ({ page }) => {
+  await page.goto('/');
+
+  // Login as admin
+  await page.getByRole('link', { name: 'Login' }).click();
+  await page.getByPlaceholder('Email address').fill('a@jwt.com');
+  await page.getByPlaceholder('Email address').press('Tab');
+  await page.getByPlaceholder('Password').fill('admin');
+  await page.getByPlaceholder('Password').press('Enter');
+  await page.getByRole('button', { name: 'Login' }).click();
+  await expect(page.getByLabel('Global')).toContainText('常');
+
+  // Go to admin dashboard
+  await page.getByRole('link', { name: 'Admin' }).click();
+  await expect(page.getByRole('main')).toContainText('Keep the dough rolling and the franchises signing up.');
+
+  // Add a franchise
+  await page.getByRole('button', { name: 'Add Franchise' }).click();
+  await page.getByPlaceholder('franchise name').click();
+  await page.getByPlaceholder('franchise name').fill('Little Ceasars');
+  await page.getByPlaceholder('franchise name').press('Tab');
+  await page.getByPlaceholder('franchisee admin email').fill('f@jwt.com');
+  await page.getByRole('button', { name: 'Create' }).click();
+  await expect(page.getByRole('table')).toContainText('Little Ceasars');
+
+  // Delete a franchise
+  await page.getByRole('row', { name: 'Little Ceasars pizza' }).getByRole('button').click();
+  await expect(page.getByRole('main')).toContainText('Little Ceasars');
+  await page.getByRole('button', { name: 'Close' }).click();
+  await expect(page.getByRole('table')).not.toContainText('Little Ceasars');
 });
