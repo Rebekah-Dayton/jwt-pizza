@@ -59,8 +59,8 @@ jobs:
       id-token: write
     runs-on: ubuntu-latest
     environment:
-      name: production
-      url: https://pizza.rebekah-dayton.com
+      name: staging
+      url: https://stage-pizza.rebekah-dayton.com
     env:
       version: ${{needs.build.outputs.version}}
     steps:
