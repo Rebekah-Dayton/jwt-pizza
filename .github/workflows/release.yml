@@ -19,7 +19,7 @@ jobs:
       version: ${{ github.event.inputs.version }}
     environment:
       name: production
-      url: https://pizza.byucsstudent.click
+      url: https://pizza.rebekah-dayton.com
     steps:
       - name: Create OIDC token to AWS
         uses: aws-actions/configure-aws-credentials@v4
